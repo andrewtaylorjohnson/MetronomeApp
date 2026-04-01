@@ -3,18 +3,19 @@ const MAX_TEMPO = 300;
 const STEP_COUNT = 16;
 
 const app = document.getElementById('app');
-const tempoButton = document.getElementById('tempo');
+const screens = document.getElementById('screens');
+const tempoMain = document.getElementById('tempo-main');
+const tempoSequencer = document.getElementById('tempo-seq');
 const decreaseButton = document.getElementById('decrease');
 const increaseButton = document.getElementById('increase');
 const soundButton = document.getElementById('sound');
 const sequencer = document.getElementById('sequencer');
-const simpleControls = document.getElementById('simple-controls');
 
 let tempo = 120;
 let soundMode = 0;
 let mode = 'simple';
 let currentStep = 0;
-let sequence = Array(STEP_COUNT).fill(true);
+let sequence = Array.from({ length: STEP_COUNT }, (_, index) => index % 2 === 0);
 let stepButtons = [];
 
 let audioContext;
@@ -90,36 +91,44 @@ const playTick = () => {
 
 const highlightCurrentStep = () => {
   stepButtons.forEach((button, index) => {
-    button.classList.toggle('current', index === currentStep);
+    button.classList.toggle('current', index === currentStep && mode === 'sequencer');
   });
 };
 
 const runStep = () => {
-  if (mode === 'simple' || sequence[currentStep]) {
+  const shouldPlaySimple = mode === 'simple' && currentStep % 2 === 0;
+  const shouldPlaySequencer = mode === 'sequencer' && sequence[currentStep];
+
+  if (shouldPlaySimple || shouldPlaySequencer) {
     playTick();
   }
+
   currentStep = (currentStep + 1) % STEP_COUNT;
-  if (mode === 'sequencer') {
-    highlightCurrentStep();
-  }
+  highlightCurrentStep();
 };
 
 const startMetronome = async () => {
   await ensureAudio();
   if (metronomeTimer) clearInterval(metronomeTimer);
   runStep();
-  const interval = Math.round(60000 / tempo);
+  const interval = Math.round(60000 / (tempo * 2));
   metronomeTimer = setInterval(runStep, interval);
+};
+
+const syncTempoText = () => {
+  const value = String(tempo);
+  tempoMain.textContent = value;
+  tempoSequencer.textContent = value;
 };
 
 const setTempo = async (nextTempo) => {
   const clamped = clampTempo(Number(nextTempo) || MIN_TEMPO);
   tempo = clamped;
-  tempoButton.textContent = String(tempo);
+  syncTempoText();
   await startMetronome();
 };
 
-const swapToInput = () => {
+const swapToInput = (tempoButton) => {
   const input = document.createElement('input');
   input.type = 'number';
   input.className = 'tempo-input';
@@ -127,6 +136,7 @@ const swapToInput = () => {
   input.min = String(MIN_TEMPO);
   input.max = String(MAX_TEMPO);
   input.value = String(tempo);
+  input.style.fontSize = getComputedStyle(tempoButton).fontSize;
 
   const finish = async () => {
     await setTempo(input.value);
@@ -140,7 +150,7 @@ const swapToInput = () => {
   });
 
   input.addEventListener('blur', finish, { once: true });
-  input.addEventListener('keydown', async (event) => {
+  input.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === 'Escape') {
       event.preventDefault();
       input.blur();
@@ -155,23 +165,12 @@ const swapToInput = () => {
 const setMode = (nextMode) => {
   if (nextMode === mode) return;
   mode = nextMode;
-
-  const isSequencer = mode === 'sequencer';
-  app.classList.toggle('sequencer-mode', isSequencer);
-  sequencer.hidden = !isSequencer;
-  simpleControls.hidden = isSequencer;
-
-  if (isSequencer) {
-    highlightCurrentStep();
-  }
+  app.classList.toggle('sequencer-mode', mode === 'sequencer');
+  highlightCurrentStep();
 };
 
 const toggleModeBySwipe = () => {
-  if (mode === 'simple') {
-    setMode('sequencer');
-    return;
-  }
-  setMode('simple');
+  setMode(mode === 'simple' ? 'sequencer' : 'simple');
 };
 
 const renderSequencer = () => {
@@ -185,14 +184,17 @@ const renderSequencer = () => {
       sequence[index] = !sequence[index];
       button.classList.toggle('active', sequence[index]);
     });
+
     stepButtons.push(button);
     fragment.appendChild(button);
   });
 
   sequencer.appendChild(fragment);
+  highlightCurrentStep();
 };
 
-tempoButton.addEventListener('click', swapToInput);
+tempoMain.addEventListener('click', () => swapToInput(tempoMain));
+tempoSequencer.addEventListener('click', () => swapToInput(tempoSequencer));
 
 decreaseButton.addEventListener('click', async () => {
   await setTempo(tempo - 1);
@@ -207,11 +209,11 @@ soundButton.addEventListener('click', async () => {
   await startMetronome();
 });
 
-app.addEventListener('pointerdown', (event) => {
+screens.addEventListener('pointerdown', (event) => {
   swipeStartX = event.clientX;
 });
 
-app.addEventListener('pointerup', (event) => {
+screens.addEventListener('pointerup', (event) => {
   if (swipeStartX === null) return;
   const deltaX = event.clientX - swipeStartX;
   swipeStartX = null;
@@ -231,4 +233,5 @@ document.addEventListener(
 );
 
 renderSequencer();
+syncTempoText();
 startMetronome();

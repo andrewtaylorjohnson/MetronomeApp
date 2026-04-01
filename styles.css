@@ -17,23 +17,49 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: Inter, SF Pro Display, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  overflow: hidden;
 }
 
 .app {
-  min-height: 100vh;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y;
+}
+
+.screens {
+  width: 200%;
+  height: 100%;
+  display: flex;
+  transform: translateX(0%);
+  transition: transform 260ms ease;
+}
+
+.app.sequencer-mode .screens {
+  transform: translateX(-50%);
+}
+
+.screen {
+  width: 50%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.simple-screen {
   justify-content: center;
   padding: 2rem;
-  touch-action: pan-y;
+}
+
+.sequencer-screen {
+  justify-content: flex-start;
+  padding: 2rem;
 }
 
 .tempo {
   border: 0;
   background: transparent;
   color: var(--fg);
-  font-size: clamp(5rem, 20vw, 12rem);
   font-weight: 200;
   letter-spacing: -0.04em;
   line-height: 1;
@@ -44,13 +70,22 @@ body {
   outline: none;
 }
 
+.tempo-main {
+  font-size: clamp(6rem, 24vw, 14rem);
+}
+
+.tempo-seq {
+  margin-top: 1.5rem;
+  font-size: clamp(2.75rem, 10vw, 4.5rem);
+}
+
 .tempo-input {
-  width: min(40vw, 16rem);
+  width: min(42vw, 18rem);
   background: transparent;
   border: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.6);
   color: var(--fg);
-  font-size: clamp(5rem, 20vw, 12rem);
+  font-size: inherit;
   font-weight: 200;
   letter-spacing: -0.04em;
   line-height: 1;
@@ -68,7 +103,7 @@ body {
 .controls {
   position: fixed;
   bottom: max(2rem, env(safe-area-inset-bottom));
-  left: 50%;
+  left: 25%;
   transform: translateX(-50%);
   display: flex;
   gap: 1rem;
@@ -124,30 +159,4 @@ body {
 
 .step.current {
   border-color: rgba(255, 255, 255, 0.95);
-}
-
-.app.sequencer-mode {
-  justify-content: flex-start;
-}
-
-.app.sequencer-mode .tempo,
-.app.sequencer-mode .tempo-input {
-  margin-top: 2rem;
-  font-size: clamp(2.5rem, 9vw, 4rem);
-}
-
-@media (max-height: 500px) {
-  .controls {
-    bottom: 1rem;
-  }
-
-  .tempo,
-  .tempo-input {
-    font-size: clamp(4rem, 18vh, 7rem);
-  }
-
-  .app.sequencer-mode .tempo,
-  .app.sequencer-mode .tempo-input {
-    font-size: clamp(2rem, 8vh, 3rem);
-  }
 }
