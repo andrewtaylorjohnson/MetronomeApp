@@ -1,15 +1,25 @@
 const MIN_TEMPO = 20;
 const MAX_TEMPO = 300;
+const STEP_COUNT = 16;
 
+const app = document.getElementById('app');
 const tempoButton = document.getElementById('tempo');
 const decreaseButton = document.getElementById('decrease');
 const increaseButton = document.getElementById('increase');
 const soundButton = document.getElementById('sound');
+const sequencer = document.getElementById('sequencer');
+const simpleControls = document.getElementById('simple-controls');
 
 let tempo = 120;
 let soundMode = 0;
+let mode = 'simple';
+let currentStep = 0;
+let sequence = Array(STEP_COUNT).fill(true);
+let stepButtons = [];
+
 let audioContext;
 let metronomeTimer;
+let swipeStartX = null;
 
 const clampTempo = (value) => Math.min(MAX_TEMPO, Math.max(MIN_TEMPO, value));
 
@@ -53,24 +63,6 @@ const playWoodBlock = (time) => {
   noise.stop(time + 0.05);
 };
 
-const playDigitalBlip = (time) => {
-  const osc = audioContext.createOscillator();
-  const gain = audioContext.createGain();
-
-  osc.type = 'triangle';
-  osc.frequency.setValueAtTime(1300, time);
-  osc.frequency.exponentialRampToValueAtTime(700, time + 0.06);
-
-  gain.gain.setValueAtTime(0.001, time);
-  gain.gain.exponentialRampToValueAtTime(0.25, time + 0.003);
-  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.07);
-
-  osc.connect(gain);
-  gain.connect(audioContext.destination);
-  osc.start(time);
-  osc.stop(time + 0.075);
-};
-
 const playWarmKick = (time) => {
   const osc = audioContext.createOscillator();
   const gain = audioContext.createGain();
@@ -93,16 +85,31 @@ const playTick = () => {
   if (!audioContext) return;
   const at = audioContext.currentTime + 0.002;
   if (soundMode === 0) playWoodBlock(at);
-  if (soundMode === 1) playDigitalBlip(at);
-  if (soundMode === 2) playWarmKick(at);
+  if (soundMode === 1) playWarmKick(at);
+};
+
+const highlightCurrentStep = () => {
+  stepButtons.forEach((button, index) => {
+    button.classList.toggle('current', index === currentStep);
+  });
+};
+
+const runStep = () => {
+  if (mode === 'simple' || sequence[currentStep]) {
+    playTick();
+  }
+  currentStep = (currentStep + 1) % STEP_COUNT;
+  if (mode === 'sequencer') {
+    highlightCurrentStep();
+  }
 };
 
 const startMetronome = async () => {
   await ensureAudio();
   if (metronomeTimer) clearInterval(metronomeTimer);
-  playTick();
+  runStep();
   const interval = Math.round(60000 / tempo);
-  metronomeTimer = setInterval(playTick, interval);
+  metronomeTimer = setInterval(runStep, interval);
 };
 
 const setTempo = async (nextTempo) => {
@@ -145,6 +152,46 @@ const swapToInput = () => {
   input.select();
 };
 
+const setMode = (nextMode) => {
+  if (nextMode === mode) return;
+  mode = nextMode;
+
+  const isSequencer = mode === 'sequencer';
+  app.classList.toggle('sequencer-mode', isSequencer);
+  sequencer.hidden = !isSequencer;
+  simpleControls.hidden = isSequencer;
+
+  if (isSequencer) {
+    highlightCurrentStep();
+  }
+};
+
+const toggleModeBySwipe = () => {
+  if (mode === 'simple') {
+    setMode('sequencer');
+    return;
+  }
+  setMode('simple');
+};
+
+const renderSequencer = () => {
+  const fragment = document.createDocumentFragment();
+
+  sequence.forEach((isOn, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `step${isOn ? ' active' : ''}`;
+    button.addEventListener('click', () => {
+      sequence[index] = !sequence[index];
+      button.classList.toggle('active', sequence[index]);
+    });
+    stepButtons.push(button);
+    fragment.appendChild(button);
+  });
+
+  sequencer.appendChild(fragment);
+};
+
 tempoButton.addEventListener('click', swapToInput);
 
 decreaseButton.addEventListener('click', async () => {
@@ -156,8 +203,22 @@ increaseButton.addEventListener('click', async () => {
 });
 
 soundButton.addEventListener('click', async () => {
-  soundMode = (soundMode + 1) % 3;
+  soundMode = (soundMode + 1) % 2;
   await startMetronome();
+});
+
+app.addEventListener('pointerdown', (event) => {
+  swipeStartX = event.clientX;
+});
+
+app.addEventListener('pointerup', (event) => {
+  if (swipeStartX === null) return;
+  const deltaX = event.clientX - swipeStartX;
+  swipeStartX = null;
+
+  if (Math.abs(deltaX) >= 40) {
+    toggleModeBySwipe();
+  }
 });
 
 document.addEventListener(
@@ -168,3 +229,6 @@ document.addEventListener(
   },
   false,
 );
+
+renderSequencer();
+startMetronome();
