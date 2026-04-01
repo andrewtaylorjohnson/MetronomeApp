@@ -6,18 +6,27 @@ const app = document.getElementById('app');
 const screens = document.getElementById('screens');
 const tempoMain = document.getElementById('tempo-main');
 const tempoSequencer = document.getElementById('tempo-seq');
-const decreaseButton = document.getElementById('decrease');
-const increaseButton = document.getElementById('increase');
+const decreaseMain = document.getElementById('decrease-main');
+const increaseMain = document.getElementById('increase-main');
+const decreaseSeq = document.getElementById('decrease-seq');
+const increaseSeq = document.getElementById('increase-seq');
+const pauseButton = document.getElementById('pause');
 const soundButton = document.getElementById('sound');
 const sequencer = document.getElementById('sequencer');
 
 let tempo = 120;
-let soundMode = 0;
 let mode = 'simple';
 let currentStep = 0;
-let sequence = Array.from({ length: STEP_COUNT }, (_, index) => index % 2 === 0);
-let stepButtons = [];
+let simpleSoundMode = 0;
+let editLayer = 0;
+let isPaused = false;
 
+const sequences = [
+  Array.from({ length: STEP_COUNT }, (_, index) => index % 2 === 0),
+  Array(STEP_COUNT).fill(false),
+];
+
+let stepButtons = [];
 let audioContext;
 let metronomeTimer;
 let swipeStartX = null;
@@ -37,9 +46,7 @@ const createNoiseBuffer = () => {
   const size = audioContext.sampleRate * 0.05;
   const buffer = audioContext.createBuffer(1, size, audioContext.sampleRate);
   const data = buffer.getChannelData(0);
-  for (let i = 0; i < size; i += 1) {
-    data[i] = Math.random() * 2 - 1;
-  }
+  for (let i = 0; i < size; i += 1) data[i] = Math.random() * 2 - 1;
   return buffer;
 };
 
@@ -82,25 +89,42 @@ const playWarmKick = (time) => {
   osc.stop(time + 0.17);
 };
 
-const playTick = () => {
+const playSound = (soundIndex) => {
   if (!audioContext) return;
   const at = audioContext.currentTime + 0.002;
-  if (soundMode === 0) playWoodBlock(at);
-  if (soundMode === 1) playWarmKick(at);
+  if (soundIndex === 0) playWoodBlock(at);
+  if (soundIndex === 1) playWarmKick(at);
+};
+
+const updatePauseIcon = () => {
+  pauseButton.innerHTML = isPaused
+    ? '<svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z" /></svg>'
+    : '<svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false"><path d="M7 5h4v14H7zm6 0h4v14h-4z" /></svg>';
+};
+
+const updateSoundButtonState = () => {
+  soundButton.classList.toggle('active-layer', mode === 'sequencer' && editLayer === 1);
 };
 
 const highlightCurrentStep = () => {
   stepButtons.forEach((button, index) => {
-    button.classList.toggle('current', index === currentStep && mode === 'sequencer');
+    button.classList.toggle('current', mode === 'sequencer' && index === currentStep);
+  });
+};
+
+const renderActiveLayer = () => {
+  stepButtons.forEach((button, index) => {
+    button.classList.toggle('active', sequences[editLayer][index]);
+    button.classList.toggle('layer-two', editLayer === 1);
   });
 };
 
 const runStep = () => {
-  const shouldPlaySimple = mode === 'simple' && currentStep % 2 === 0;
-  const shouldPlaySequencer = mode === 'sequencer' && sequence[currentStep];
-
-  if (shouldPlaySimple || shouldPlaySequencer) {
-    playTick();
+  if (mode === 'simple') {
+    if (currentStep % 2 === 0) playSound(simpleSoundMode);
+  } else {
+    if (sequences[0][currentStep]) playSound(0);
+    if (sequences[1][currentStep]) playSound(1);
   }
 
   currentStep = (currentStep + 1) % STEP_COUNT;
@@ -108,6 +132,7 @@ const runStep = () => {
 };
 
 const startMetronome = async () => {
+  if (isPaused) return;
   await ensureAudio();
   if (metronomeTimer) clearInterval(metronomeTimer);
   runStep();
@@ -122,8 +147,7 @@ const syncTempoText = () => {
 };
 
 const setTempo = async (nextTempo) => {
-  const clamped = clampTempo(Number(nextTempo) || MIN_TEMPO);
-  tempo = clamped;
+  tempo = clampTempo(Number(nextTempo) || MIN_TEMPO);
   syncTempoText();
   await startMetronome();
 };
@@ -166,6 +190,8 @@ const setMode = (nextMode) => {
   if (nextMode === mode) return;
   mode = nextMode;
   app.classList.toggle('sequencer-mode', mode === 'sequencer');
+  renderActiveLayer();
+  updateSoundButtonState();
   highlightCurrentStep();
 };
 
@@ -175,37 +201,58 @@ const toggleModeBySwipe = () => {
 
 const renderSequencer = () => {
   const fragment = document.createDocumentFragment();
-
-  sequence.forEach((isOn, index) => {
+  for (let index = 0; index < STEP_COUNT; index += 1) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `step${isOn ? ' active' : ''}`;
+    button.className = 'step';
     button.addEventListener('click', () => {
-      sequence[index] = !sequence[index];
-      button.classList.toggle('active', sequence[index]);
+      sequences[editLayer][index] = !sequences[editLayer][index];
+      renderActiveLayer();
     });
-
     stepButtons.push(button);
     fragment.appendChild(button);
-  });
+  }
 
   sequencer.appendChild(fragment);
+  renderActiveLayer();
   highlightCurrentStep();
 };
 
 tempoMain.addEventListener('click', () => swapToInput(tempoMain));
 tempoSequencer.addEventListener('click', () => swapToInput(tempoSequencer));
 
-decreaseButton.addEventListener('click', async () => {
-  await setTempo(tempo - 1);
+[decreaseMain, decreaseSeq].forEach((button) => {
+  button.addEventListener('click', async () => {
+    await setTempo(tempo - 1);
+  });
 });
 
-increaseButton.addEventListener('click', async () => {
-  await setTempo(tempo + 1);
+[increaseMain, increaseSeq].forEach((button) => {
+  button.addEventListener('click', async () => {
+    await setTempo(tempo + 1);
+  });
 });
 
 soundButton.addEventListener('click', async () => {
-  soundMode = (soundMode + 1) % 2;
+  if (mode === 'simple') {
+    simpleSoundMode = (simpleSoundMode + 1) % 2;
+    await startMetronome();
+    return;
+  }
+
+  editLayer = (editLayer + 1) % 2;
+  renderActiveLayer();
+  updateSoundButtonState();
+});
+
+pauseButton.addEventListener('click', async () => {
+  isPaused = !isPaused;
+  updatePauseIcon();
+  if (isPaused) {
+    if (metronomeTimer) clearInterval(metronomeTimer);
+    metronomeTimer = undefined;
+    return;
+  }
   await startMetronome();
 });
 
@@ -217,21 +264,16 @@ screens.addEventListener('pointerup', (event) => {
   if (swipeStartX === null) return;
   const deltaX = event.clientX - swipeStartX;
   swipeStartX = null;
-
-  if (Math.abs(deltaX) >= 40) {
-    toggleModeBySwipe();
-  }
+  if (Math.abs(deltaX) >= 40) toggleModeBySwipe();
 });
 
-document.addEventListener(
-  'visibilitychange',
-  async () => {
-    if (document.hidden || !audioContext) return;
-    await startMetronome();
-  },
-  false,
-);
+document.addEventListener('visibilitychange', async () => {
+  if (document.hidden || !audioContext || isPaused) return;
+  await startMetronome();
+});
 
 renderSequencer();
 syncTempoText();
+updatePauseIcon();
+updateSoundButtonState();
 startMetronome();
