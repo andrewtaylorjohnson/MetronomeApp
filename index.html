@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Metronome</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main id="app" class="app" aria-label="Metronome app">
+      <div id="screens" class="screens">
+        <section class="screen simple-screen" aria-label="Metronome mode">
+          <div class="tempo-row">
+            <button id="decrease-main" class="nudge-button" aria-label="Decrease tempo" type="button">−</button>
+            <button id="tempo-main" class="tempo tempo-main" aria-label="Tempo" type="button">120</button>
+            <button id="increase-main" class="nudge-button" aria-label="Increase tempo" type="button">+</button>
+          </div>
+        </section>
+
+        <section class="screen sequencer-screen" aria-label="Sequencer mode">
+          <div class="tempo-row">
+            <button id="decrease-seq" class="nudge-button" aria-label="Decrease tempo" type="button">−</button>
+            <button id="tempo-seq" class="tempo tempo-seq" aria-label="Tempo" type="button">120</button>
+            <button id="increase-seq" class="nudge-button" aria-label="Increase tempo" type="button">+</button>
+          </div>
+          <div id="sequencer" class="sequencer" aria-label="Beat sequencer"></div>
+        </section>
+      </div>
+
+      <div class="bottom-controls" aria-label="Playback controls">
+        <button id="sound" class="icon-button sound" aria-label="Sound options" type="button">
+          <svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false">
+            <path d="M15 3v11.08A4.12 4.12 0 0 0 13.5 14C11.57 14 10 15.34 10 17s1.57 3 3.5 3 3.5-1.34 3.5-3V8h3V3h-5z" />
+          </svg>
+        </button>
+        <button id="pause" class="icon-button" aria-label="Pause or play" type="button">
+          <svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false">
+            <path d="M7 5h4v14H7zm6 0h4v14h-4z" />
+          </svg>
+        </button>
+        <button id="mode" class="icon-button mode" aria-label="Toggle mode" type="button">
+          <svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false">
+            <path d="M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z" />
+          </svg>
+        </button>
+      </div>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
