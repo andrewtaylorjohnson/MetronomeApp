@@ -3,7 +3,6 @@ const MAX_TEMPO = 300;
 const STEP_COUNT = 16;
 
 const app = document.getElementById('app');
-const screens = document.getElementById('screens');
 const tempoMain = document.getElementById('tempo-main');
 const tempoSequencer = document.getElementById('tempo-seq');
 const decreaseMain = document.getElementById('decrease-main');
@@ -12,6 +11,7 @@ const decreaseSeq = document.getElementById('decrease-seq');
 const increaseSeq = document.getElementById('increase-seq');
 const pauseButton = document.getElementById('pause');
 const soundButton = document.getElementById('sound');
+const modeButton = document.getElementById('mode');
 const sequencer = document.getElementById('sequencer');
 
 let tempo = 120;
@@ -20,6 +20,7 @@ let currentStep = 0;
 let simpleSoundMode = 0;
 let editLayer = 0;
 let isPaused = false;
+let pendingTempo = null;
 
 const sequences = [
   Array.from({ length: STEP_COUNT }, (_, index) => index % 2 === 0),
@@ -29,7 +30,7 @@ const sequences = [
 let stepButtons = [];
 let audioContext;
 let metronomeTimer;
-let swipeStartX = null;
+let stepIntervalMs = Math.round(60000 / (tempo * 2));
 
 const clampTempo = (value) => Math.min(MAX_TEMPO, Math.max(MIN_TEMPO, value));
 
@@ -102,6 +103,13 @@ const updatePauseIcon = () => {
     : '<svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false"><path d="M7 5h4v14H7zm6 0h4v14h-4z" /></svg>';
 };
 
+const updateModeIcon = () => {
+  modeButton.innerHTML =
+    mode === 'simple'
+      ? '<svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false"><path d="M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z" /></svg>'
+      : '<svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false"><path d="M12 3a1 1 0 0 1 1 1v2.06a7 7 0 0 1 4.94 4.94H20a1 1 0 1 1 0 2h-2.06a7 7 0 0 1-4.94 4.94V20a1 1 0 1 1-2 0v-2.06a7 7 0 0 1-4.94-4.94H4a1 1 0 1 1 0-2h2.06a7 7 0 0 1 4.94-4.94V4a1 1 0 0 1 1-1zm0 5a4 4 0 1 0 0 8 4 4 0 0 0 0-8z\" /></svg>';
+};
+
 const updateSoundButtonState = () => {
   soundButton.classList.toggle('active-layer', mode === 'sequencer' && editLayer === 1);
 };
@@ -129,15 +137,25 @@ const runStep = () => {
 
   currentStep = (currentStep + 1) % STEP_COUNT;
   highlightCurrentStep();
+
+  if (pendingTempo !== null) {
+    tempo = pendingTempo;
+    pendingTempo = null;
+    stepIntervalMs = Math.round(60000 / (tempo * 2));
+    if (!isPaused) {
+      clearInterval(metronomeTimer);
+      metronomeTimer = setInterval(runStep, stepIntervalMs);
+    }
+  }
 };
 
 const startMetronome = async () => {
   if (isPaused) return;
   await ensureAudio();
   if (metronomeTimer) clearInterval(metronomeTimer);
+  stepIntervalMs = Math.round(60000 / (tempo * 2));
   runStep();
-  const interval = Math.round(60000 / (tempo * 2));
-  metronomeTimer = setInterval(runStep, interval);
+  metronomeTimer = setInterval(runStep, stepIntervalMs);
 };
 
 const syncTempoText = () => {
@@ -147,9 +165,10 @@ const syncTempoText = () => {
 };
 
 const setTempo = async (nextTempo) => {
-  tempo = clampTempo(Number(nextTempo) || MIN_TEMPO);
+  const clamped = clampTempo(Number(nextTempo) || MIN_TEMPO);
+  tempo = clamped;
+  pendingTempo = clamped;
   syncTempoText();
-  await startMetronome();
 };
 
 const swapToInput = (tempoButton) => {
@@ -167,11 +186,6 @@ const swapToInput = (tempoButton) => {
     input.replaceWith(tempoButton);
     tempoButton.focus();
   };
-
-  input.addEventListener('input', async () => {
-    if (!input.value) return;
-    await setTempo(input.value);
-  });
 
   input.addEventListener('blur', finish, { once: true });
   input.addEventListener('keydown', (event) => {
@@ -192,6 +206,7 @@ const setMode = (nextMode) => {
   app.classList.toggle('sequencer-mode', mode === 'sequencer');
   renderActiveLayer();
   updateSoundButtonState();
+  updateModeIcon();
   highlightCurrentStep();
 };
 
@@ -256,15 +271,8 @@ pauseButton.addEventListener('click', async () => {
   await startMetronome();
 });
 
-screens.addEventListener('pointerdown', (event) => {
-  swipeStartX = event.clientX;
-});
-
-screens.addEventListener('pointerup', (event) => {
-  if (swipeStartX === null) return;
-  const deltaX = event.clientX - swipeStartX;
-  swipeStartX = null;
-  if (Math.abs(deltaX) >= 40) toggleModeBySwipe();
+modeButton.addEventListener('click', () => {
+  toggleModeBySwipe();
 });
 
 document.addEventListener('visibilitychange', async () => {
@@ -276,4 +284,5 @@ renderSequencer();
 syncTempoText();
 updatePauseIcon();
 updateSoundButtonState();
+updateModeIcon();
 startMetronome();
