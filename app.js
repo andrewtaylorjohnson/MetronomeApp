@@ -74,20 +74,33 @@ const playWoodBlock = (time) => {
 
 const playWarmKick = (time) => {
   const osc = audioContext.createOscillator();
+  const click = audioContext.createOscillator();
+  const clickGain = audioContext.createGain();
   const gain = audioContext.createGain();
 
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(165, time);
-  osc.frequency.exponentialRampToValueAtTime(46, time + 0.09);
+  osc.frequency.setValueAtTime(185, time);
+  osc.frequency.exponentialRampToValueAtTime(52, time + 0.085);
+
+  click.type = 'triangle';
+  click.frequency.setValueAtTime(950, time);
+  click.frequency.exponentialRampToValueAtTime(420, time + 0.028);
+  clickGain.gain.setValueAtTime(0.0001, time);
+  clickGain.gain.exponentialRampToValueAtTime(0.14, time + 0.002);
+  clickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.03);
 
   gain.gain.setValueAtTime(0.001, time);
-  gain.gain.exponentialRampToValueAtTime(0.7, time + 0.005);
-  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.16);
+  gain.gain.exponentialRampToValueAtTime(0.85, time + 0.004);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.14);
 
   osc.connect(gain);
+  click.connect(clickGain);
   gain.connect(audioContext.destination);
+  clickGain.connect(audioContext.destination);
   osc.start(time);
+  click.start(time);
   osc.stop(time + 0.17);
+  click.stop(time + 0.032);
 };
 
 const playSound = (soundIndex) => {
@@ -112,6 +125,12 @@ const updateModeIcon = () => {
 
 const updateSoundButtonState = () => {
   soundButton.classList.toggle('active-layer', mode === 'sequencer' && editLayer === 1);
+};
+
+const updateTheme = () => {
+  const selectedSound = mode === 'sequencer' ? editLayer : simpleSoundMode;
+  app.classList.toggle('wood-theme', selectedSound === 0);
+  app.classList.toggle('kick-theme', selectedSound === 1);
 };
 
 const highlightCurrentStep = () => {
@@ -202,11 +221,17 @@ const swapToInput = (tempoButton) => {
 
 const setMode = (nextMode) => {
   if (nextMode === mode) return;
+  if (nextMode === 'simple') {
+    simpleSoundMode = editLayer;
+  } else {
+    editLayer = simpleSoundMode;
+  }
   mode = nextMode;
   app.classList.toggle('sequencer-mode', mode === 'sequencer');
   renderActiveLayer();
   updateSoundButtonState();
   updateModeIcon();
+  updateTheme();
   highlightCurrentStep();
 };
 
@@ -251,6 +276,7 @@ tempoSequencer.addEventListener('click', () => swapToInput(tempoSequencer));
 soundButton.addEventListener('click', async () => {
   if (mode === 'simple') {
     simpleSoundMode = (simpleSoundMode + 1) % 2;
+    updateTheme();
     await startMetronome();
     return;
   }
@@ -258,6 +284,7 @@ soundButton.addEventListener('click', async () => {
   editLayer = (editLayer + 1) % 2;
   renderActiveLayer();
   updateSoundButtonState();
+  updateTheme();
 });
 
 pauseButton.addEventListener('click', async () => {
@@ -285,4 +312,5 @@ syncTempoText();
 updatePauseIcon();
 updateSoundButtonState();
 updateModeIcon();
+updateTheme();
 startMetronome();

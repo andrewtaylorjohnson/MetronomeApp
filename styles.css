@@ -1,7 +1,7 @@
 :root {
   color-scheme: dark;
   --bg: #000;
-  --fg: #fff;
+  --fg: #ff4b4b;
   --mid: #777;
   --mid-2: #9a9a9a;
 }
@@ -27,12 +27,19 @@ body {
   touch-action: pan-y;
 }
 
+.app.wood-theme {
+  --fg: #ff4b4b;
+}
+
+.app.kick-theme {
+  --fg: #4b8dff;
+}
+
 .screens {
   width: 200%;
   height: 100%;
   display: flex;
   transform: translateX(0%);
-  transition: transform 260ms ease;
 }
 
 .app.sequencer-mode .screens {
@@ -53,7 +60,7 @@ body {
 }
 
 .sequencer-screen {
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .tempo-row {
@@ -120,32 +127,32 @@ body {
 }
 
 .sequencer {
-  width: min(92vw, 36rem);
-  margin-top: 2.5rem;
+  width: min(96vw, 44rem);
+  margin-top: 1rem;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.9rem;
+  gap: 1.1rem;
 }
 
 .step {
   width: 100%;
   aspect-ratio: 1;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid color-mix(in srgb, var(--fg) 35%, transparent);
   background: transparent;
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease;
 }
 
 .step.active {
-  background: var(--mid);
+  background: color-mix(in srgb, var(--fg) 55%, #000);
 }
 
 .step.layer-two.active {
-  background: var(--mid-2);
+  background: color-mix(in srgb, var(--fg) 70%, #000);
 }
 
 .step.current {
-  border-color: rgba(255, 255, 255, 0.95);
+  border-color: var(--fg);
 }
 
 .bottom-controls {
@@ -161,8 +168,8 @@ body {
   width: 3.25rem;
   height: 3.25rem;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid color-mix(in srgb, var(--fg) 28%, transparent);
+  background: color-mix(in srgb, var(--fg) 12%, transparent);
   color: var(--fg);
   display: grid;
   place-items: center;
@@ -176,6 +183,6 @@ body {
 }
 
 .icon-button.active-layer {
-  border-color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.16);
+  border-color: var(--fg);
+  background: color-mix(in srgb, var(--fg) 24%, transparent);
 }
