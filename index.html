@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Metronome</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main id="app" class="app" aria-label="Metronome app">
+      <div id="screens" class="screens">
+        <section class="screen simple-screen" aria-label="Metronome mode">
+          <button id="tempo-main" class="tempo tempo-main" aria-label="Tempo" type="button">120</button>
+          <div id="simple-controls" class="controls" aria-label="Tempo controls">
+            <button id="decrease" class="icon-button" aria-label="Decrease tempo" type="button">−</button>
+            <button id="sound" class="icon-button sound" aria-label="Change sound" type="button">
+              <svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false">
+                <path d="M15 3v11.08A4.12 4.12 0 0 0 13.5 14C11.57 14 10 15.34 10 17s1.57 3 3.5 3 3.5-1.34 3.5-3V8h3V3h-5z" />
+              </svg>
+            </button>
+            <button id="increase" class="icon-button" aria-label="Increase tempo" type="button">+</button>
+          </div>
+        </section>
+
+        <section class="screen sequencer-screen" aria-label="Sequencer mode">
+          <button id="tempo-seq" class="tempo tempo-seq" aria-label="Tempo" type="button">120</button>
+          <div id="sequencer" class="sequencer" aria-label="Beat sequencer"></div>
+        </section>
+      </div>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
