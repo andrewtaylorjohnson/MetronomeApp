@@ -19,18 +19,23 @@ let mode = 'simple';
 let currentStep = 0;
 let simpleSoundMode = 0;
 let editLayer = 0;
-let isPaused = false;
+let isPaused = true;
 let pendingTempo = null;
 
 const sequences = [
-  Array.from({ length: STEP_COUNT }, (_, index) => index % 2 === 0),
+  Array.from({ length: STEP_COUNT }, (_, index) => index % 4 === 0),
   Array(STEP_COUNT).fill(false),
 ];
 
 let stepButtons = [];
 let audioContext;
-let metronomeTimer;
-let stepIntervalMs = Math.round(60000 / (tempo * 2));
+let schedulerTimer;
+let animationFrame;
+let nextStepTime = 0;
+let scheduledStep = currentStep;
+const LOOKAHEAD_MS = 25;
+const SCHEDULE_AHEAD_S = 0.12;
+const scheduledVisualSteps = [];
 
 const clampTempo = (value) => Math.min(MAX_TEMPO, Math.max(MIN_TEMPO, value));
 
@@ -79,12 +84,12 @@ const playWarmKick = (time) => {
   const gain = audioContext.createGain();
 
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(185, time);
-  osc.frequency.exponentialRampToValueAtTime(52, time + 0.085);
+  osc.frequency.setValueAtTime(92, time);
+  osc.frequency.exponentialRampToValueAtTime(26, time + 0.085);
 
   click.type = 'triangle';
-  click.frequency.setValueAtTime(950, time);
-  click.frequency.exponentialRampToValueAtTime(420, time + 0.028);
+  click.frequency.setValueAtTime(640, time);
+  click.frequency.exponentialRampToValueAtTime(300, time + 0.028);
   clickGain.gain.setValueAtTime(0.0001, time);
   clickGain.gain.exponentialRampToValueAtTime(0.14, time + 0.002);
   clickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.03);
@@ -103,17 +108,43 @@ const playWarmKick = (time) => {
   click.stop(time + 0.032);
 };
 
-const playSound = (soundIndex) => {
+const playClosedHiHat = (time) => {
+  const noise = audioContext.createBufferSource();
+  noise.buffer = createNoiseBuffer();
+
+  const highpass = audioContext.createBiquadFilter();
+  highpass.type = 'highpass';
+  highpass.frequency.setValueAtTime(6500, time);
+  highpass.Q.value = 0.9;
+
+  const bandpass = audioContext.createBiquadFilter();
+  bandpass.type = 'bandpass';
+  bandpass.frequency.setValueAtTime(10000, time);
+  bandpass.Q.value = 1.2;
+
+  const gain = audioContext.createGain();
+  gain.gain.setValueAtTime(0.001, time);
+  gain.gain.exponentialRampToValueAtTime(0.33, time + 0.0015);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.032);
+
+  noise.connect(highpass);
+  highpass.connect(bandpass);
+  bandpass.connect(gain);
+  gain.connect(audioContext.destination);
+  noise.start(time);
+  noise.stop(time + 0.04);
+};
+
+const playSound = (soundIndex, at) => {
   if (!audioContext) return;
-  const at = audioContext.currentTime + 0.002;
-  if (soundIndex === 0) playWoodBlock(at);
-  if (soundIndex === 1) playWarmKick(at);
+  if (soundIndex === 0) playWarmKick(at);
+  if (soundIndex === 1) playClosedHiHat(at);
 };
 
 const updatePauseIcon = () => {
   pauseButton.innerHTML = isPaused
     ? '<svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z" /></svg>'
-    : '<svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false"><path d="M7 5h4v14H7zm6 0h4v14h-4z" /></svg>';
+    : '<svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false"><path d="M6 6h12v12H6z" /></svg>';
 };
 
 const updateModeIcon = () => {
@@ -127,16 +158,21 @@ const updateSoundButtonState = () => {
   soundButton.classList.toggle('active-layer', mode === 'sequencer' && editLayer === 1);
 };
 
-const updateTheme = () => {
-  const selectedSound = mode === 'sequencer' ? editLayer : simpleSoundMode;
-  app.classList.toggle('wood-theme', selectedSound === 0);
-  app.classList.toggle('kick-theme', selectedSound === 1);
-};
-
 const highlightCurrentStep = () => {
   stepButtons.forEach((button, index) => {
     button.classList.toggle('current', mode === 'sequencer' && index === currentStep);
   });
+};
+
+const flashStep = (stepIndex) => {
+  const button = stepButtons[stepIndex];
+  if (!button) return;
+  button.classList.remove('flash');
+  void button.offsetWidth;
+  button.classList.add('flash');
+  window.setTimeout(() => {
+    button.classList.remove('flash');
+  }, 90);
 };
 
 const renderActiveLayer = () => {
@@ -146,35 +182,60 @@ const renderActiveLayer = () => {
   });
 };
 
-const runStep = () => {
+const getStepDuration = () => 60 / (tempo * 4);
+
+const scheduleOneStep = (stepIndex, atTime) => {
   if (mode === 'simple') {
-    if (currentStep % 2 === 0) playSound(simpleSoundMode);
+    if (stepIndex % 4 === 0) playSound(simpleSoundMode, atTime);
   } else {
-    if (sequences[0][currentStep]) playSound(0);
-    if (sequences[1][currentStep]) playSound(1);
+    if (sequences[0][stepIndex]) playSound(0, atTime);
+    if (sequences[1][stepIndex]) playSound(1, atTime);
   }
 
-  currentStep = (currentStep + 1) % STEP_COUNT;
-  highlightCurrentStep();
+  scheduledVisualSteps.push({ stepIndex, atTime });
 
   if (pendingTempo !== null) {
     tempo = pendingTempo;
     pendingTempo = null;
-    stepIntervalMs = Math.round(60000 / (tempo * 2));
-    if (!isPaused) {
-      clearInterval(metronomeTimer);
-      metronomeTimer = setInterval(runStep, stepIntervalMs);
+  }
+};
+
+const scheduler = () => {
+  if (!audioContext || isPaused) return;
+
+  while (nextStepTime < audioContext.currentTime + SCHEDULE_AHEAD_S) {
+    scheduleOneStep(scheduledStep, nextStepTime);
+    nextStepTime += getStepDuration();
+    scheduledStep = (scheduledStep + 1) % STEP_COUNT;
+  }
+};
+
+const animateSteps = () => {
+  if (!audioContext || isPaused) return;
+
+  const now = audioContext.currentTime;
+  while (scheduledVisualSteps.length > 0 && scheduledVisualSteps[0].atTime <= now) {
+    const next = scheduledVisualSteps.shift();
+    currentStep = (next.stepIndex + 1) % STEP_COUNT;
+    if (mode === 'sequencer') {
+      flashStep(next.stepIndex);
     }
   }
+
+  animationFrame = requestAnimationFrame(animateSteps);
 };
 
 const startMetronome = async () => {
   if (isPaused) return;
   await ensureAudio();
-  if (metronomeTimer) clearInterval(metronomeTimer);
-  stepIntervalMs = Math.round(60000 / (tempo * 2));
-  runStep();
-  metronomeTimer = setInterval(runStep, stepIntervalMs);
+  if (schedulerTimer) clearInterval(schedulerTimer);
+  if (animationFrame) cancelAnimationFrame(animationFrame);
+  scheduledVisualSteps.length = 0;
+  scheduledStep = currentStep;
+  nextStepTime = audioContext.currentTime + 0.005;
+  scheduler();
+  schedulerTimer = setInterval(scheduler, LOOKAHEAD_MS);
+  animationFrame = requestAnimationFrame(animateSteps);
 };
 
 const syncTempoText = () => {
@@ -185,8 +246,8 @@ const syncTempoText = () => {
 
 const setTempo = async (nextTempo) => {
   const clamped = clampTempo(Number(nextTempo) || MIN_TEMPO);
-  tempo = clamped;
   pendingTempo = clamped;
+  tempo = clamped;
   syncTempoText();
 };
 
@@ -231,7 +292,6 @@ const setMode = (nextMode) => {
   renderActiveLayer();
   updateSoundButtonState();
   updateModeIcon();
-  updateTheme();
   highlightCurrentStep();
 };
 
@@ -276,7 +336,6 @@ tempoSequencer.addEventListener('click', () => swapToInput(tempoSequencer));
 soundButton.addEventListener('click', async () => {
   if (mode === 'simple') {
     simpleSoundMode = (simpleSoundMode + 1) % 2;
-    updateTheme();
     await startMetronome();
     return;
   }
@@ -284,17 +343,26 @@ soundButton.addEventListener('click', async () => {
   editLayer = (editLayer + 1) % 2;
   renderActiveLayer();
   updateSoundButtonState();
-  updateTheme();
 });
 
 pauseButton.addEventListener('click', async () => {
   isPaused = !isPaused;
   updatePauseIcon();
   if (isPaused) {
-    if (metronomeTimer) clearInterval(metronomeTimer);
-    metronomeTimer = undefined;
+    if (schedulerTimer) clearInterval(schedulerTimer);
+    if (animationFrame) cancelAnimationFrame(animationFrame);
+    schedulerTimer = undefined;
+    animationFrame = undefined;
+    scheduledVisualSteps.length = 0;
+    currentStep = 0;
+    scheduledStep = 0;
+    stepButtons.forEach((button) => {
+      button.classList.remove('flash');
+    });
     return;
   }
+  currentStep = 0;
+  scheduledStep = 0;
   await startMetronome();
 });
 
@@ -312,5 +380,3 @@ syncTempoText();
 updatePauseIcon();
 updateSoundButtonState();
 updateModeIcon();
-updateTheme();
-startMetronome();
