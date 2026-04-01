@@ -1,0 +1,181 @@
+:root {
+  color-scheme: dark;
+  --bg: #000;
+  --fg: #fff;
+  --mid: #777;
+  --mid-2: #9a9a9a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: Inter, SF Pro Display, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  overflow: hidden;
+}
+
+.app {
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y;
+}
+
+.screens {
+  width: 200%;
+  height: 100%;
+  display: flex;
+  transform: translateX(0%);
+  transition: transform 260ms ease;
+}
+
+.app.sequencer-mode .screens {
+  transform: translateX(-50%);
+}
+
+.screen {
+  width: 50%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+}
+
+.simple-screen {
+  justify-content: center;
+}
+
+.sequencer-screen {
+  justify-content: flex-start;
+}
+
+.tempo-row {
+  width: min(90vw, 42rem);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+}
+
+.tempo {
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font-weight: 200;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  cursor: text;
+  padding: 0;
+  text-align: center;
+  outline: none;
+}
+
+.tempo-main {
+  font-size: clamp(6.5rem, 25vw, 14.5rem);
+}
+
+.tempo-seq {
+  margin-top: 1.5rem;
+  font-size: clamp(3rem, 12vw, 5rem);
+}
+
+.nudge-button {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--fg);
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tempo-input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+  color: var(--fg);
+  font-size: inherit;
+  font-weight: 200;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  text-align: center;
+  outline: none;
+  padding: 0;
+}
+
+.tempo-input::-webkit-outer-spin-button,
+.tempo-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.sequencer {
+  width: min(92vw, 36rem);
+  margin-top: 2.5rem;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.9rem;
+}
+
+.step {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.step.active {
+  background: var(--mid);
+}
+
+.step.layer-two.active {
+  background: var(--mid-2);
+}
+
+.step.current {
+  border-color: rgba(255, 255, 255, 0.95);
+}
+
+.bottom-controls {
+  position: fixed;
+  bottom: max(2rem, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 1rem;
+}
+
+.icon-button {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fg);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.icon-button svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: currentColor;
+}
+
+.icon-button.active-layer {
+  border-color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.16);
+}
